@@ -16,6 +16,7 @@ class RcloneManager:
             raise RuntimeError("rclone is not installed or not in PATH. Please install rclone first.") from e
             
         self.mounts = {}
+        self.transfers = {}  # Track active transfers
         self.config = config
         self.config_path = Path(config.get('config_path')) if config else Path.home() / '.config' / 'rclone' / 'rclone.conf'
         self.refresh_mounts()  # Initialize current mounts
@@ -225,21 +226,18 @@ class RcloneManager:
             except Exception as e2:
                 print(f"Error checking /proc/mounts: {e2}")
                 return False
-                
-    def list_remotes(self) -> list:
-        """List available remotes"""
-        try:
-            result = subprocess.run(
-                ['rclone', 'listremotes'],
-                capture_output=True,
-                text=True,
-                check=True
-            )
-            return [r.strip(':') for r in result.stdout.splitlines()]
-        except Exception as e:
-            print(f"Error listing remotes: {e}")
+
+    def list_remotes(self) -> list[str]:
+        """List configured remotes"""
+        if not self.config_path.exists():
             return []
-            
+
+        try:
+            output = subprocess.check_output(['rclone', 'listremotes'])
+            return [r.strip(':') for r in output.decode().splitlines()]
+        except subprocess.CalledProcessError:
+            return []
+
     def refresh_mounts(self):
         """Refresh the current mount status"""
         # Clear current mounts
@@ -266,18 +264,182 @@ class RcloneManager:
                 except subprocess.CalledProcessError:
                     pass  # No process found
 
-    def list_remotes(self) -> list[str]:
-        """List configured remotes"""
-        if not self.config_path.exists():
-            return []
+    def sync(self, source: str, dest: str, flags: list = None) -> QProcess:
+        """Sync files from source to destination"""
+        process = QProcess()
+        process.setProgram('rclone')
+        
+        args = ['sync', source, dest, '--progress']
+        if flags:
+            args.extend(flags)
+            
+        # Add default options for better reliability
+        args.extend([
+            '--transfers', '4',
+            '--checkers', '8',
+            '--stats', '1s',
+            '--stats-one-line'
+        ])
+        
+        process.setArguments(args)
+        print(f"Starting rclone sync with args: {' '.join(args)}")
+        
+        transfer_id = f"sync_{source}_{dest}_{len(self.transfers)}"
+        self.transfers[transfer_id] = {
+            'process': process,
+            'type': 'sync',
+            'source': source,
+            'dest': dest,
+            'status': 'starting',
+            'progress': 0,
+            'speed': '0 B/s',
+            'eta': 'unknown'
+        }
+        
+        # Connect process signals
+        process.readyReadStandardOutput.connect(
+            lambda: self._update_transfer_progress(transfer_id)
+        )
+        process.finished.connect(
+            lambda: self._handle_transfer_completion(transfer_id)
+        )
+        
+        process.start()
+        return process
 
-        try:
-            output = subprocess.check_output(['rclone', 'listremotes'])
-            return [r.strip(':') for r in output.decode().splitlines()]
-        except subprocess.CalledProcessError:
-            return []
+    def copy(self, source: str, dest: str, flags: list = None) -> QProcess:
+        """Copy files from source to destination"""
+        process = QProcess()
+        process.setProgram('rclone')
+        
+        args = ['copy', source, dest, '--progress']
+        if flags:
+            args.extend(flags)
+            
+        # Add default options for better reliability
+        args.extend([
+            '--transfers', '4',
+            '--checkers', '8',
+            '--stats', '1s',
+            '--stats-one-line'
+        ])
+        
+        process.setArguments(args)
+        print(f"Starting rclone copy with args: {' '.join(args)}")
+        
+        transfer_id = f"copy_{source}_{dest}_{len(self.transfers)}"
+        self.transfers[transfer_id] = {
+            'process': process,
+            'type': 'copy',
+            'source': source,
+            'dest': dest,
+            'status': 'starting',
+            'progress': 0,
+            'speed': '0 B/s',
+            'eta': 'unknown'
+        }
+        
+        # Connect process signals
+        process.readyReadStandardOutput.connect(
+            lambda: self._update_transfer_progress(transfer_id)
+        )
+        process.finished.connect(
+            lambda: self._handle_transfer_completion(transfer_id)
+        )
+        
+        process.start()
+        return process
+
+    def get_transfers(self) -> dict:
+        """Get current transfers and their status"""
+        return self.transfers
+
+    def cancel_transfer(self, transfer_id: str) -> bool:
+        """Cancel a transfer"""
+        if transfer_id not in self.transfers:
+            return False
+            
+        transfer = self.transfers[transfer_id]
+        process = transfer['process']
+        
+        if process.state() == QProcess.ProcessState.Running:
+            process.terminate()
+            if not process.waitForFinished(5000):  # 5 second timeout
+                process.kill()
+            
+        transfer['status'] = 'cancelled'
+        return True
+
+    def set_bandwidth_limit(self, limit: str):
+        """Set bandwidth limit for all transfers"""
+        # Format limit (e.g., "1M", "10M")
+        if not any(unit in limit for unit in ['K', 'M', 'G']):
+            limit += 'M'  # Default to MB/s
+            
+        for transfer_id in self.transfers:
+            transfer = self.transfers[transfer_id]
+            if transfer['status'] == 'running':
+                process = transfer['process']
+                # Send SIGUSR1 to rclone to update bandwidth
+                process.write(f"rate={limit}\n".encode())
+
+    def _update_transfer_progress(self, transfer_id: str):
+        """Update transfer progress from process output"""
+        if transfer_id not in self.transfers:
+            return
+            
+        transfer = self.transfers[transfer_id]
+        process = transfer['process']
+        
+        # Read latest output
+        output = process.readAllStandardOutput().data().decode()
+        
+        # Parse progress information
+        if '*' in output:  # Stats line marker
+            try:
+                # Example: "* 45%, 123.45M/s, ETA 2m30s"
+                stats = output.split('*')[1].strip()
+                parts = stats.split(',')
+                
+                # Update progress
+                if '%' in parts[0]:
+                    transfer['progress'] = int(parts[0].strip().rstrip('%'))
+                
+                # Update speed
+                if len(parts) > 1:
+                    transfer['speed'] = parts[1].strip()
+                
+                # Update ETA
+                if len(parts) > 2:
+                    transfer['eta'] = parts[2].strip().replace('ETA ', '')
+                    
+                transfer['status'] = 'running'
+            except Exception as e:
+                print(f"Error parsing transfer progress: {e}")
+
+    def _handle_transfer_completion(self, transfer_id: str):
+        """Handle transfer completion"""
+        if transfer_id not in self.transfers:
+            return
+            
+        transfer = self.transfers[transfer_id]
+        process = transfer['process']
+        
+        if process.exitCode() == 0:
+            transfer['status'] = 'completed'
+            transfer['progress'] = 100
+        else:
+            transfer['status'] = 'failed'
+            
+        # Keep failed/completed transfers in list for history
+        # Could add cleanup after certain time/number of transfers
 
     def cleanup(self):
-        """Clean up all mounts"""
+        """Clean up all mounts and transfers"""
+        # Clean up mounts
         for remote in list(self.mounts.keys()):
             self.unmount(remote)
+            
+        # Clean up transfers
+        for transfer_id in list(self.transfers.keys()):
+            self.cancel_transfer(transfer_id)

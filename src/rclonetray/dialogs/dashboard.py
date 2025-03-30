@@ -7,10 +7,11 @@ from datetime import datetime
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton,
                            QLabel, QTableWidget, QTableWidgetItem, QTabWidget,
                            QWidget, QProgressBar, QGroupBox, QFormLayout,
-                           QScrollArea, QMenu, QMessageBox)
+                           QScrollArea, QMenu, QMessageBox, QComboBox)
 from PyQt6.QtCore import Qt, QTimer, pyqtSlot, QThread, pyqtSignal
 from PyQt6.QtGui import QFont, QIcon
 import psutil
+from .transfer import TransferDialog
 
 class DashboardDialog(QDialog):
     def __init__(self, config, rclone_manager, parent=None):
@@ -144,16 +145,137 @@ class DashboardDialog(QDialog):
     def create_transfers_tab(self):
         tab = QWidget()
         layout = QVBoxLayout()
+
+        # Transfer controls
+        controls = QHBoxLayout()
+        
+        # Sync button
+        sync_btn = QPushButton("New Sync")
+        sync_btn.clicked.connect(self.start_sync)
+        controls.addWidget(sync_btn)
+        
+        # Copy button
+        copy_btn = QPushButton("New Copy")
+        copy_btn.clicked.connect(self.start_copy)
+        controls.addWidget(copy_btn)
+        
+        # Bandwidth control
+        controls.addStretch()
+        controls.addWidget(QLabel("Bandwidth Limit:"))
+        self.bandwidth_combo = QComboBox()
+        self.bandwidth_combo.addItems(["No Limit", "1M", "5M", "10M", "20M", "50M"])
+        self.bandwidth_combo.currentTextChanged.connect(self.set_bandwidth_limit)
+        controls.addWidget(self.bandwidth_combo)
+        
+        layout.addLayout(controls)
         
         # Active transfers
+        transfers_group = QGroupBox("Active Transfers")
+        transfers_layout = QVBoxLayout()
+        
         self.transfers_table = QTableWidget()
-        self.transfers_table.setColumnCount(5)
-        self.transfers_table.setHorizontalHeaderLabels(["Name", "Size", "Progress", "Speed", "ETA"])
+        self.transfers_table.setColumnCount(7)
+        self.transfers_table.setHorizontalHeaderLabels([
+            "Type", "Source", "Destination", "Progress",
+            "Speed", "ETA", "Actions"
+        ])
         self.transfers_table.horizontalHeader().setStretchLastSection(True)
-        layout.addWidget(self.transfers_table)
+        self.transfers_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        transfers_layout.addWidget(self.transfers_table)
+        
+        transfers_group.setLayout(transfers_layout)
+        layout.addWidget(transfers_group)
         
         tab.setLayout(layout)
         return tab
+        
+    def start_sync(self):
+        """Start a new sync operation"""
+        dialog = TransferDialog("sync", self.rclone.list_remotes(), self)
+        if dialog.exec():
+            source, dest, flags = dialog.get_values()
+            try:
+                self.rclone.sync(source, dest, flags)
+                self.update_transfers()
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to start sync: {e}")
+    
+    def start_copy(self):
+        """Start a new copy operation"""
+        dialog = TransferDialog("copy", self.rclone.list_remotes(), self)
+        if dialog.exec():
+            source, dest, flags = dialog.get_values()
+            try:
+                self.rclone.copy(source, dest, flags)
+                self.update_transfers()
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to start copy: {e}")
+    
+    def set_bandwidth_limit(self, limit):
+        """Set bandwidth limit for transfers"""
+        if limit == "No Limit":
+            limit = "0"
+        try:
+            self.rclone.set_bandwidth_limit(limit)
+        except Exception as e:
+            QMessageBox.warning(self, "Warning", f"Failed to set bandwidth limit: {e}")
+            
+    def update_transfers(self):
+        """Update transfers table"""
+        try:
+            transfers = self.rclone.get_transfers()
+            self.transfers_table.setRowCount(len(transfers))
+            
+            for i, (transfer_id, transfer) in enumerate(transfers.items()):
+                # Transfer type
+                self.transfers_table.setItem(i, 0, QTableWidgetItem(transfer['type']))
+                
+                # Source/Destination
+                self.transfers_table.setItem(i, 1, QTableWidgetItem(transfer['source']))
+                self.transfers_table.setItem(i, 2, QTableWidgetItem(transfer['dest']))
+                
+                # Progress
+                progress = QProgressBar()
+                progress.setValue(transfer['progress'])
+                progress.setFormat(f"{transfer['progress']}%")
+                self.transfers_table.setCellWidget(i, 3, progress)
+                
+                # Speed
+                self.transfers_table.setItem(i, 4, QTableWidgetItem(transfer['speed']))
+                
+                # ETA
+                self.transfers_table.setItem(i, 5, QTableWidgetItem(transfer['eta']))
+                
+                # Action buttons
+                btn_widget = QWidget()
+                btn_layout = QHBoxLayout(btn_widget)
+                btn_layout.setContentsMargins(2, 2, 2, 2)
+                
+                if transfer['status'] in ['starting', 'running']:
+                    cancel_btn = QPushButton("Cancel")
+                    cancel_btn.clicked.connect(lambda tid=transfer_id: self.cancel_transfer(tid))
+                    btn_layout.addWidget(cancel_btn)
+                else:
+                    status_label = QLabel(transfer['status'].title())
+                    btn_layout.addWidget(status_label)
+                
+                btn_layout.addStretch()
+                self.transfers_table.setCellWidget(i, 6, btn_widget)
+            
+            self.transfers_table.resizeColumnsToContents()
+            
+        except Exception as e:
+            print(f"Error updating transfers: {e}")
+    
+    def cancel_transfer(self, transfer_id):
+        """Cancel a transfer"""
+        try:
+            if self.rclone.cancel_transfer(transfer_id):
+                self.update_transfers()
+            else:
+                QMessageBox.warning(self, "Warning", "Failed to cancel transfer")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error cancelling transfer: {e}")
 
     @pyqtSlot()
     def update_stats(self):

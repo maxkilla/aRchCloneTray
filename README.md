@@ -9,6 +9,10 @@ aRchCloneTray is a modern PyQt6-based system tray application for [Rclone](https
 - ⚙️ Advanced mount options and configuration
 - 🔔 System notifications for mount events
 - 🎨 Clean and intuitive user interface
+- 🚀 Sync and copy operations between remotes
+- 📈 Real-time transfer progress monitoring
+- 🎛️ Dynamic bandwidth control for transfers
+- ⏸️ Pause/resume and cancel transfer operations
 
 ## Requirements
 - Python 3.8 or higher
@@ -56,6 +60,24 @@ The application will automatically start with your desktop environment and appea
    - View transfer status
    - Access the dashboard
    - Configure settings
+
+### Transfer Operations
+
+1. Open the dashboard by clicking the tray icon
+2. Go to the "Transfers" tab
+3. Click "New Sync" or "New Copy" to start a transfer:
+   - Sync: One-way sync that makes destination identical to source
+   - Copy: Copy files from source to destination
+4. Select source and destination remotes and paths
+5. Configure transfer options:
+   - Dry Run: Test without making changes
+   - Verbose Output: Show detailed progress
+   - Skip Newer: Skip files newer on destination
+   - Empty Dirs: Create empty directories
+6. Monitor transfers in real-time:
+   - View progress, speed, and ETA
+   - Control bandwidth usage
+   - Cancel transfers if needed
 
 ## Configuration
 

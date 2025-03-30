@@ -6,6 +6,7 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton,
                            QTextEdit, QMessageBox, QLabel, QFileDialog)
 from PyQt6.QtCore import Qt, pyqtSlot
 from PyQt6.QtGui import QFont
+from .new_remote import NewRemoteDialog
 
 class RcloneConfigDialog(QDialog):
     def __init__(self, config, parent=None):
@@ -14,6 +15,7 @@ class RcloneConfigDialog(QDialog):
         self.setWindowTitle('Rclone Configuration')
         self.setMinimumSize(800, 600)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        self.new_remote_dialog = None  # Keep reference to prevent premature cleanup
         self.init_ui()
         self.load_config()
 
@@ -118,29 +120,15 @@ class RcloneConfigDialog(QDialog):
 
     @pyqtSlot()
     def new_remote(self):
-        """Create a new remote using rclone config"""
-        try:
-            # Similar to run_rclone_config but specifically for new remote
-            terminals = ['konsole', 'gnome-terminal', 'xterm']
-            cmd = None
-            
-            for term in terminals:
-                if subprocess.run(['which', term], capture_output=True).returncode == 0:
-                    if term == 'konsole':
-                        cmd = [term, '-e', 'rclone', 'config', 'create']
-                    elif term == 'gnome-terminal':
-                        cmd = [term, '--', 'rclone', 'config', 'create']
-                    else:
-                        cmd = [term, '-e', 'rclone config create']
-                    break
-            
-            if cmd:
-                subprocess.Popen(cmd)
-                self.hide()  # Hide the dialog while using the terminal
-            else:
-                QMessageBox.critical(self, "Error", "No suitable terminal emulator found")
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to create new remote: {e}")
+        """Create a new remote using the provider selection dialog"""
+        dialog = NewRemoteDialog(parent=self)
+        # Keep a reference to prevent premature cleanup
+        self.new_remote_dialog = dialog
+        if dialog.exec():
+            # Reload config after new remote is configured
+            self.load_config()
+        # Clean up reference
+        self.new_remote_dialog = None
 
     @pyqtSlot()
     def import_config(self):
