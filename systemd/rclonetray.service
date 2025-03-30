@@ -1,0 +1,13 @@
+[Unit]
+Description=RcloneTray KDE System Tray Application
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/rclonetray
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

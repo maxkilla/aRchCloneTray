@@ -1,0 +1,2 @@
+[console_scripts]
+rclonetray = rclonetray.__main__:main

@@ -1,56 +1,96 @@
-# <img src="https://raw.githubusercontent.com/dimitrov-adrian/RcloneTray/master/src/ui/icons/source-icon-color.png" width="48px" align="center" alt="RcloneTray Icon" /> RcloneTray
+# aRchCloneTray
 
-[![Build Status](https://travis-ci.org/dimitrov-adrian/RcloneTray.svg?branch=master)](https://travis-ci.org/dimitrov-adrian/rclonetray)
-[![JavaScript Standard Style](https://img.shields.io/badge/code%20style-standard-brightgreen.svg)](http://standardjs.com)
-![Dependencies](https://david-dm.org/dimitrov-adrian/RcloneTray/status.svg)
+aRchCloneTray is a modern PyQt6-based system tray application for [Rclone](https://rclone.org/), providing seamless integration with Linux desktop environments and easy access to remote file systems.
 
-RcloneTray is simple cross-platform GUI for [Rclone](https://rclone.org/) and is intended to provide a free altenative to [Mountain Duck](https://mountainduck.io/)
-
-
-## Overview
-![Screenshot](https://raw.githubusercontent.com/dimitrov-adrian/RcloneTray/master/screenshot.png)
-
+## Features
+- 🖥️ Modern PyQt6 interface with dark mode support
+- 🔄 Real-time mount management and status monitoring
+- 📊 Dashboard with system statistics and transfer monitoring
+- ⚙️ Advanced mount options and configuration
+- 🔔 System notifications for mount events
+- 🎨 Clean and intuitive user interface
 
 ## Requirements
-Only 64bit binaries are provided in distributions.
+- Python 3.8 or higher
+- PyQt6
+- rclone (installed via system package manager)
+- FUSE3
 
-Supported operation systems:
-* Windows 7/8/10 (x64)
-* macOS 10.10 and later
-* GNU/Linux (x64), DE with tray icons support
+## Installation
 
-To get mount function working, you need to install extra packages:
-* Windows - http://www.secfs.net/winfsp/download/
-* macOS - https://osxfuse.github.io/
-* Linux - fuse
+### Arch Linux
+
+1. Install dependencies:
+```bash
+sudo pacman -S python python-pyqt6 rclone fuse3 qt6-base
+```
+
+2. Install from source:
+```bash
+git clone https://github.com/maxkilla/aRchCloneTray.git
+cd aRchCloneTray
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+3. Run the application:
+```bash
+python -m rclonetray
+```
+
+4. (Optional) Add to autostart:
+```bash
+mkdir -p ~/.config/autostart
+cp desktop/org.archclonetray.desktop ~/.config/autostart/
+```
+
+The application will automatically start with your desktop environment and appear in the system tray.
+
+## Usage
+
+1. Ensure rclone is installed and configured
+2. Start aRchCloneTray
+3. Use the system tray icon to:
+   - Mount/unmount remotes
+   - View transfer status
+   - Access the dashboard
+   - Configure settings
+
+## Configuration
+
+The application uses your existing rclone configuration (`~/.config/rclone/rclone.conf`) and stores its own settings in `~/.config/archclonetray/config.json`.
+
+## Development
+
+This is a modern Linux application built with:
+- PyQt6 for the UI
+- Python standard library for process management
+- Modern async/await patterns for better performance
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 
 ## FAQ
 
-**The application bundle comes with Rclone version XXX, but I want to use version YYY installed on my system**
+**How do I configure rclone?**
 
-Go "Preferences" and from "Rclone" tab, uncheck the option "Use bundled Rclone".
+Use `rclone config` in the terminal to set up your remotes, or use the built-in configuration interface in aRchCloneTray.
 
+**Where are my mounts located?**
 
-## Downloads
-[Check latest releases](https://github.com/dimitrov-adrian/RcloneTray/releases)
+By default, mounts are created in `~/mnt/<remote_name>`.
 
+**How do I update aRchCloneTray?**
 
-## Contributing
-Any help is welcome, just file an issue or pull request.
-
-
-## Building
-
-You'll need [Node.js](https://nodejs.org) installed on your computer in order to build this app.
-
+Pull the latest changes from the repository and restart the application:
 ```bash
-$ git clone https://github.com/dimitrov-adrian/RcloneTray
-$ cd RcloneTray
-$ npm install
-$ npm start
+git pull
+pip install -r requirements.txt
 ```
 
-
 ## License
-This project is licensed under the [MIT](https://github.com/dimitrov-adrian/RcloneTray/blob/master/LICENSE.txt) License
+
+This project is licensed under the [MIT License](LICENSE.txt).

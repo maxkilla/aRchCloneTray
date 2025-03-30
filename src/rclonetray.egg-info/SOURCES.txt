@@ -1,0 +1,14 @@
+LICENSE.txt
+README.md
+setup.py
+src/rclonetray/__init__.py
+src/rclonetray/__main__.py
+src/rclonetray/rclone.py
+src/rclonetray/tray.py
+src/rclonetray.egg-info/PKG-INFO
+src/rclonetray.egg-info/SOURCES.txt
+src/rclonetray.egg-info/dependency_links.txt
+src/rclonetray.egg-info/entry_points.txt
+src/rclonetray.egg-info/requires.txt
+src/rclonetray.egg-info/top_level.txt
+src/rclonetray/dialogs/__init__.py

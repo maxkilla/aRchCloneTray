@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=aRchCloneTray
+Comment=Modern Rclone GUI for Linux
+Exec=python -m rclonetray
+Icon=rclone
+Terminal=false
+Type=Application
+Categories=Network;FileTransfer;System;FileTools;
+StartupNotify=false
+StartupWMClass=archclonetray
+Keywords=rclone;cloud;storage;mount;sync;backup;
+X-GNOME-UsesNotifications=true
