@@ -3,6 +3,7 @@ README.md
 setup.py
 src/rclonetray/__init__.py
 src/rclonetray/__main__.py
+src/rclonetray/config.py
 src/rclonetray/rclone.py
 src/rclonetray/tray.py
 src/rclonetray.egg-info/PKG-INFO
@@ -12,3 +13,10 @@ src/rclonetray.egg-info/entry_points.txt
 src/rclonetray.egg-info/requires.txt
 src/rclonetray.egg-info/top_level.txt
 src/rclonetray/dialogs/__init__.py
+src/rclonetray/dialogs/about.py
+src/rclonetray/dialogs/dashboard.py
+src/rclonetray/dialogs/new_remote.py
+src/rclonetray/dialogs/preferences.py
+src/rclonetray/dialogs/rclone_config.py
+src/rclonetray/dialogs/settings.py
+src/rclonetray/dialogs/transfer.py
